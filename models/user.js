@@ -23,7 +23,7 @@ const userScema = new mongoose.Schema({
                     /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(myForm.emailAddr.value)
                 );
             },
-            message: (props) => 'Email (${props.value}) is invalid!',
+            message: (props) => `Email (${props.value}) is invalid`,
         },
     },
     passwordChangedAt: {
@@ -41,6 +41,16 @@ const userScema = new mongoose.Schema({
     updatedAt: {
         type: Date,
     },
+    verified: {
+        type: Boolean,
+        defalt: false,
+    },
+    otp: {
+        type: Number,
+    },
+    otp_expiry_time: {
+        type: Date,
+    },
 
 });
 
@@ -48,7 +58,7 @@ userSchema.methods.correctPassword = async function (
     candidatePassword,
     userPassword
 ) {
-    return await  bcrypt.compare(candidatePassword, userpassword);
+    return await bcrypt.compare(candidatePassword, userpassword);
 }
 
 
