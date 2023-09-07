@@ -62,17 +62,37 @@ exports.verifyOTP = async (req, res, next) => {
 
     const user = await User.findOne({
         email,
-        otp_expiry_time: {$gt: Date.now()},
+        otp_expiry_time: { $gt: Date.now() },
     });
 
-    if(!user) {
+    if (!user) {
         res.status(400).json({
-            status : "error",
+            status: "error",
             message: "Email is Invalid or OTP has expired",
         });
     }
 
-    
+    if (!await user.correctOTP(otp, user.otp)) {
+        res.status(400).json({
+            status: "error",
+            message: "OTP is incorrect",
+        });
+
+    }
+
+    user.verified = true;
+    user.otp = undefined;
+
+    await user.save({new: true, validateModifiedOnly: true});
+
+    const token = signToken(user._id);
+
+    res.status(200).json({
+        status: "success",
+        messge: "OTP verified successfully!",
+        token,
+    });
+
 };
 
 exports.login = async (req, res, next) => {
@@ -104,3 +124,11 @@ exports.login = async (req, res, next) => {
         token,
     });
 };
+
+exports.forgotPassword = async (req, res, next) => {
+
+}
+
+exports.resetPassword = async (req, res, next) => {
+    
+}

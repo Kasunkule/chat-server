@@ -54,12 +54,26 @@ const userScema = new mongoose.Schema({
 
 });
 
+userScema.pre("save", async function (next) {
+
+    if (!this.isModified("otp")) return next();
+
+    this.otp = await bcryptjs.hash(this.otp, 12);
+});
+
 userSchema.methods.correctPassword = async function (
     candidatePassword,
     userPassword
 ) {
     return await bcrypt.compare(candidatePassword, userpassword);
-}
+};
+
+userSchema.methods.correctOTP = async function (
+    candidateOTP,
+    userOTP
+) {
+    return await bcrypt.compare(candidateOTP, userOTP);
+};
 
 
 const User = new mongoose.model("User", userSchema);
