@@ -1,4 +1,5 @@
 const express = require ("express");
+const routes = this.require("./routes/index");
 
 const morgan = require("morgan");
 
@@ -49,5 +50,9 @@ const limited = ratelimit(
         widowMs: 60 * 60 *1000,
         message:"Too many requests from this IP, Please try again in an hour",
 });
+
+app.use("/tawk", limiter);
+
+app.use(routes);
 
 module.exports = app;

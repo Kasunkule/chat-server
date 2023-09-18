@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
 const otpGenerator = require('otp-generator');
 const crypto = require("crypto");
+const mailService = require("../services/mailer");
 
 const User = require("../models/user");
 const filterObj = require("../utils/filterObj");
@@ -48,6 +49,15 @@ exports.sendOTP = async (req, res, next) => {
     await User.findByIdAndUpdate(userId, {
         otp: new_otp,
         otp_expiry_time,
+    });
+
+    mailService.sendMail({
+
+        from: "kasun.rasanjana512@gmail.com",
+        to: "example@gmail.com",
+        subject: "OTP for TalkWave",
+        text : `Your OTP is ${new_otp}. This is valid for 10 Minutes.`,
+
     });
 
     res.status(200).json({
