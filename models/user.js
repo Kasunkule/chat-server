@@ -1,5 +1,7 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
+
 
 const userScema = new mongoose.Schema({
     firstName: {
@@ -25,6 +27,13 @@ const userScema = new mongoose.Schema({
             },
             message: (props) => `Email (${props.value}) is invalid`,
         },
+    },
+    password: {
+        type: String,
+    },
+
+    passwordConfirm: {
+        type: String,
     },
     passwordChangedAt: {
         type: Date,
@@ -59,6 +68,19 @@ userScema.pre("save", async function (next) {
     if (!this.isModified("otp")) return next();
 
     this.otp = await bcryptjs.hash(this.otp, 12);
+
+    next();
+
+});
+
+userScema.pre("save", async function (next) {
+
+    if (!this.isModified("password")) return next();
+
+    this.password = await bcryptjs.hash(this.password, 12);
+
+    next();
+
 });
 
 userSchema.methods.correctPassword = async function (
@@ -74,6 +96,22 @@ userSchema.methods.correctOTP = async function (
 ) {
     return await bcrypt.compare(candidateOTP, userOTP);
 };
+
+userSchema.methods.correctPasswordResetToken = function () {
+
+    const resetToken = crypto.randomBytes(32).toString("hex");
+
+    this.passwordResetToken = crypto.createHash("sha256").update(resetToken).digest("hex");
+
+    this.passwordResetExpires = Date.now() + 10 * 60 * 1000;
+
+    return resetToken;
+};
+
+userSchema.methods.changePasswordAfter = function (timestamp) {
+    return timestamp < this.passwordChangedAt;
+};
+
 
 
 const User = new mongoose.model("User", userSchema);

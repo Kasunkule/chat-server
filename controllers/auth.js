@@ -1,8 +1,10 @@
 const jwt = require("jsonwebtoken");
 const otpGenerator = require('otp-generator');
+const crypto = require("crypto");
 
 const User = require("../models/user");
 const filterObj = require("../utils/filterObj");
+const { promisify } = require("util");
 
 const signToken = (userId) => jwt.sign({ userId }, process.env.JWT_SECRET);
 
@@ -83,7 +85,7 @@ exports.verifyOTP = async (req, res, next) => {
     user.verified = true;
     user.otp = undefined;
 
-    await user.save({new: true, validateModifiedOnly: true});
+    await user.save({ new: true, validateModifiedOnly: true });
 
     const token = signToken(user._id);
 
@@ -125,10 +127,122 @@ exports.login = async (req, res, next) => {
     });
 };
 
+exports.protect = async (req, res, next) => {
+    
+    let token; 
+
+    if(req.headers.autherization && req.headers.autherization.startsWith("Bearer")) {
+        token = req.headers.autherization.split("") [1];
+
+
+    }
+    else if(req.cookies.jwt) {
+
+        token.req.cookies.jwt;
+
+    }
+    else {
+        req.status(400).json({
+            status: "error",
+            message: "You are not logged In! Please log in to get access",
+        });
+
+        return;
+    }
+
+    const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
+
+    const this_user = await User.findById(decoded.userId);
+
+    if(!this_user) {
+        res.status(400).json({
+            status: "error",
+            message: "The user dosen't exist",
+        });
+    }
+
+    if(this_user.changedPasswordAfter(decoded.iat)) {
+        
+        res.status(400).json({
+            status: "error",
+            message: "User recently updated password! please log in again",
+        });
+    }
+
+    req.user = this_user;
+    next();
+
+};
+
 exports.forgotPassword = async (req, res, next) => {
 
-}
+    const user = await User.findOne({ email: req.body.email });
+    if (!user) {
+        res.status(400).json({
+            status: "error",
+            message: "There is no user with given email address"
+        });
+
+        return;
+    }
+
+    const resetToken = user.creatPasswordResetToken();
+
+    const resetURL = `https://tawk.com/auth/reset-password/?code=${resetToken}`;
+
+    try {
+
+        res.status(200).json({
+            status: "success",
+            message: "Reset Password link sent to Email",
+        });
+
+    }
+    catch (error) {
+        user.PasswordResetToken = undefined;
+        user.creatPasswordExpires = undefined;
+
+        await user.save({ validateBeforeforSave: false });
+
+        res.status(500).json({
+            status: "error",
+            message: "There was an error sending the email, Please try again later.",
+        });
+    }
+
+};
 
 exports.resetPassword = async (req, res, next) => {
-    
-}
+
+    const hashedToken = crypto.createHash("sha256").update(req.params.token).digest("hex");
+
+    const user = await User.findOne({
+        passwordResetToken: hashedToken,
+        passwordResetExpires: {$gt: Date.now()},
+    });
+
+    if(!user) {
+        res.status(400).json({
+            status: "error",
+            message: "Token is Invalid or Expired",
+        });
+
+        return;
+    }
+
+    user.password = req.body.password;
+    user.passwordConfirm = req.body.passwordConfirm;
+    user.PasswordResetToken = undefined;
+    user.creatPasswordExpires = undefined;
+
+    await user.save();
+
+    const token = signToken(user._id);
+
+    res.status(200).json({
+        status: "success",
+        messge: "Password Reseted Successfully",
+        token,
+    });
+
+};
